@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+    body { margin: 0; background: #fff; }
+    svg { width: 100vh; height: 100vh; }
+
+    .area {
+      fill: #9CB3C5;
+      stroke: #fff;
+    }
+    .region {
+      stroke-width: 0.5;
+    }
+    .country {
+      stroke-width: 2;
+    }
+
+    .pressmint:hover {
+      fill: #3399BB;
+    }
+
+    .pressmint {
+      fill: #C7D987;/*#3399BB;*/
+    }
+
+    .label {
+      fill:#052d4d;
+      font-family: "Source Sans 3", Arial, sans-serif;
+      font-size: 2.5vh;
+      pointer-events: none;
+    }
+
+#controls {
+  position: absolute;
+  bottom: 5px;
+  left: 105vh;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: rgba(255,255,255,0.8);
+  padding: 8px;
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+}
+
+
+
+.exportBtn {
+  width: 55px;
+  height: 55px;
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 18px;
+
+  background: linear-gradient(135deg, #a2c03759, #8ea83063);
+  color: white;
+
+  border: none;
+  border-radius: 50%;
+
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.exportBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+  background: linear-gradient(135deg, #a2c037, #8ea830);
+}
+
+.exportBtn:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+  </style>
+</head>
+<body>
+  <div id="controls">
+<button class="exportBtn" id="exportSVG" title="Download SVG">⬇ SVG</button>
+<button class="exportBtn" id="exportPNG" title="Download PNG">⬇ PNG</button>
+</div>
+<svg id="map"></svg>
+
+<script>
+
+const btnSVG = document.querySelector("#exportSVG");
+const btnPNG = document.querySelector("#exportPNG");
+btnSVG.disabled = true;
+btnPNG.disabled = true;
+const keep = ["fill", "stroke", "stroke-width", "opacity", "font-size", "font-weight", "font-family", "text-anchor"];
+let imageReady = false;
+
+
+
+const PressMintEU = new Set([
+"AT",
+"BG",
+"CZ",
+"ES-GA",
+"ES-MD",
+"ES-PV",
+"FI",
+"FR",
+"GB",
+"GR",
+"HU",
+"IS",
+"IT",
+"LV",
+"NL",
+"PL",
+"PT",
+"SI",
+"UA",
+]);
+
+const PressMintAF = new Set([
+"ZA"
+]);
+
+const boxCountriesEU= new Set([
+"FI",
+"IS",
+"UA",
+"GR"
+]);
+
+const boxCountriesAF = new Set([
+"ZA"
+]);
+
+const height = window.innerHeight;
+const width = height;
+
+const svg = d3.select("#map");
+
+
+
+// Projection focused on Europe
+const projection = d3.geoMercator()
+  .center([15, 55])   // Europe center
+  .scale(500)
+  .translate([width / 2, height / 2]);
+
+const path = d3.geoPath().projection(projection);
+
+// Load Natural Earth GeoJSON (via CDN)
+d3.json("./map.geojson")
+  .then(data => {
+    console.log("Loaded", data);
+
+    // Filter Europe
+    const europe = {
+      type: "FeatureCollection",
+      //features: data.features.filter(d => europeISO.has(d.properties["iso2"]))
+      features: data.features.filter(d => {
+        return (d.properties.parent == "Europe" || d.properties.parent == "Asia" || d.properties.parent == "ES");
+      })
+    };
+
+    const boxEU = {
+      type: "FeatureCollection",
+      features: europe.features.filter(d => {
+        return boxCountriesEU.has(d.properties.iso);
+      })
+    };
+
+    const africa = {
+      type: "FeatureCollection",
+      features: data.features.filter(d => {
+        return (d.properties.parent == "Africa" || (PressMintAF.has(d.properties.iso)));
+      })
+    };
+
+    const boxAF = {
+      type: "FeatureCollection",
+      features: africa.features.filter(d => {
+        return boxCountriesAF.has(d.properties.iso);
+      })
+    };
+
+
+    const shiftX = 5;
+    const paddingLeft = 10;
+    const paddingRight = 10;
+    const paddingBottom = 5;
+    const paddingTop = 35;
+    const projection = d3.geoMercator()
+      .fitExtent(
+        [
+          [paddingLeft+shiftX, paddingTop],
+          [width - paddingRight + shiftX, height - paddingBottom]
+        ],
+        boxEU
+      );
+    // projection centered on Europe
+    //const projection = d3.geoMercator()
+    //  .fitSize([width, height], boxEU);
+    const path = d3.geoPath().projection(projection);
+
+    console.log("EUROPE:", europe);
+    console.log("AFRICA:", africa);
+
+    const defs = svg.append("defs");
+    svg.selectAll("path.eu")
+      .data(europe.features)
+      .enter()
+      .append("path")
+      .attr("class", d =>
+                         "area " + d.properties.level + (PressMintEU.has(d.properties.iso) || PressMintAF.has(d.properties.iso) ? " pressmint" : "")
+            )
+      .attr("code", d => d.properties.iso)
+      .attr("name", d => d.properties.name)
+      .attr("d", path);
+    
+    
+    const [[ax0, ay0], [ax1, ay1]] = path.bounds(boxAF);
+    const [cx, cy] = path.centroid(boxAF);
+    const scale = 0.6;
+    
+    const refCountry = europe.features.find(d => d.properties.iso === "IS");
+    const [[rx0, ry0], [rx1, ry1]] = path.bounds(refCountry);
+
+    const targetX = rx0 + (rx1 - rx0) / 1.5; // almost-center horizontally on IS
+    const targetY = ry0 + (ry1 - ry0) + (ay1-ay0); // place below IS
+    
+
+    /*
+    defs.append("clipPath")
+  .attr("id", "clip-pressmintAF")
+  .append("rect")
+  .attr("x", bx0)
+  .attr("y", by0)
+  .attr("width", bx1 - bx0)
+  .attr("height", by1 - by0);
+  */
+
+  const r = Math.sqrt(Math.pow(ax1 - ax0, 2) + Math.pow(ay1 - ay0, 2)) / 2 * scale;
+  defs.append("clipPath")
+  .attr("id", "clip-pressmintAF")
+  .append("circle")
+  .attr("cx", cx)
+  .attr("cy", cy)
+  .attr("r", r);
+  
+    
+    const gAfrica = svg.append("g").attr("clip-path", "url(#clip-pressmintAF)");
+
+    gAfrica.selectAll("path.af")
+      .data(africa.features)
+      .enter()
+      .append("path")
+      .attr("class", d =>
+                         "area " + d.properties.level + (PressMintAF.has(d.properties.iso) ? " pressmint" : "")
+            )
+      .attr("code", d => d.properties.iso)
+      .attr("name", d => d.properties.name)
+      .attr("d", path);   
+      gAfrica.append("circle")
+  .attr("cx", cx)
+  .attr("cy", cy)
+  .attr("r", r)
+  .attr("fill", "none")
+  .attr("stroke", "#9CB3C5")
+  .attr("stroke-width", 10);   
+  gAfrica.attr("transform", `
+          translate(${targetX}, ${targetY})
+          scale(${scale})
+          translate(${-cx}, ${-cy})
+        `);
+
+
+  // add labels
+  svg.selectAll("text")
+  .data(europe.features.concat(africa.features))
+  .enter()
+  .append("text")
+  .filter(d =>
+    PressMintEU.has(d.properties.iso) ||
+    PressMintAF.has(d.properties.iso)
+  )
+  .attr("x", d => projectPoint(d)[0])
+  .attr("y", d => projectPoint(d)[1])
+  .attr("class", "label")
+  .attr("text-anchor", "middle")
+  .attr("alignment-baseline", "middle")
+  .text(d => d.properties.iso);
+
+  function projectPoint(d) {
+    const [x, y] = getMainlandCentroid(d);
+    if (d.properties.iso === "ZA") {
+      return [
+        targetX + (x - cx) * scale,
+        targetY + (y - cy) * scale
+      ];
+    }
+
+    return [x, y];
+  }
+  
+  function getMainlandCentroid(feature) {
+  let maxArea = 0;
+  let bestPolygon = null;
+
+  if (feature.geometry.type === "MultiPolygon") {
+    feature.geometry.coordinates.forEach(polygon => {
+      const area = d3.geoArea({ type: "Polygon", coordinates: polygon });
+      if (area > maxArea) {
+        maxArea = area;
+        bestPolygon = polygon;
+      }
+    });
+
+    return path.centroid({
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: bestPolygon
+      }
+    });
+  }
+
+  // simple polygon
+  return path.centroid(feature);
+  }
+
+  
+  loadImageAsBase64("logo.png", base64 => {
+  svg.append("image")
+    .attr("href", base64)
+    .attr("x", rx1)
+    .attr("y", paddingTop)
+    .attr("width", 2*r)
+    .attr("height", 2*r);
+    imageReady = true;
+    requestAnimationFrame(() => {
+      // requestAnimationFrame(downloadSVG);
+        btnSVG.addEventListener("click", downloadSVG);
+        btnSVG.disabled = false;
+        btnPNG.addEventListener("click", downloadPNG);
+        btnPNG.disabled = false;
+    });
+  });
+
+
+  
+
+})
+  .catch(err => {
+    console.error("LOAD FAILED:", err);
+  });
+
+
+function inlineStyles(svg) {
+  //const elements = [svg, ...svg.querySelectorAll("*")];
+  const elements = svg.querySelectorAll("*")
+console.log(svg);
+
+  elements.forEach(el => {
+    const computed = window.getComputedStyle(el);
+    let style = "";
+    keep.forEach(prop => {
+      const value = computed.getPropertyValue(prop);
+      if (value) style += `${prop}:${value};`;
+    });
+
+    el.setAttribute("style", style);
+  });
+}
+
+
+function loadImageAsBase64(url, callback) {
+  fetch(url)
+    .then(res => res.blob())
+    .then(blob => {
+      const reader = new FileReader();
+      reader.onloadend = () => callback(reader.result);
+      reader.readAsDataURL(blob);
+    });
+}
+
+function exportSVG() {
+  const svgNode = document.getElementById("map");
+  if (!imageReady) {
+    console.warn("Image not ready yet");
+    return;
+  }
+  // clone so you don’t destroy live DOM
+  const clone = svgNode.cloneNode(true);
+  //clone.style.position = "absolute";
+  //clone.style.left = "-9999px";
+  //clone.style.width="100vw";
+  //clone.style.height="100vh";
+  
+  console.log(clone.querySelector("image"));
+
+  document.body.appendChild(clone);
+  inlineStyles(clone);
+  document.body.removeChild(clone);
+  //clone.setAttribute("width", width);
+  //clone.setAttribute("height", height);
+  clone.removeAttribute("style"); // optional
+  clone.style.background = "white";
+  clone.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+  console.log(clone);
+
+
+  const serializer = new XMLSerializer();
+  let source = serializer.serializeToString(clone);
+
+  // add XML header
+  source = '<?xml version="1.0" standalone="no"?>\n' + source;
+
+  return source;
+}
+
+function downloadSVG() {
+  const svgString = exportSVG();
+
+  const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "map.svg";
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+
+function downloadPNG() {
+  const svgString = exportSVG();
+
+  const img = new Image();
+  const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+
+  img.onload = function () {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const scale = 2; // 2 = retina quality
+
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0, width, height);
+
+    URL.revokeObjectURL(url);
+
+    canvas.toBlob(blob => {
+      const pngUrl = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = pngUrl;
+      a.download = "map.png";
+      a.click();
+
+      URL.revokeObjectURL(pngUrl);
+    });
+  };
+
+  img.src = url;
+}
+
+</script>
+
+</body>
+</html>
