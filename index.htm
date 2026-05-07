@@ -10,13 +10,15 @@
     svg { width: 100vh; height: 100vh; }
 
     .area {
-      fill: #9CB3C5;
       stroke: #fff;
     }
     .region {
+      fill:none;
+      stroke-opacity: 0.5;
       stroke-width: 0.5;
     }
     .country {
+      fill: #9CB3C5;
       stroke-width: 2;
     }
 
@@ -32,7 +34,11 @@
       fill:#052d4d;
       font-family: "Source Sans 3", Arial, sans-serif;
       font-size: 2.5vh;
+      font-weight: 600;
       pointer-events: none;
+    }
+    .label.region {
+      font-size: 1.8vh;
     }
 
 #controls {
@@ -293,7 +299,7 @@ d3.json("./map.geojson")
   )
   .attr("x", d => projectPoint(d)[0])
   .attr("y", d => projectPoint(d)[1])
-  .attr("class", "label")
+  .attr("class", d => "label " + d.properties.level)
   .attr("text-anchor", "middle")
   .attr("alignment-baseline", "middle")
   .text(d => d.properties.iso);
