@@ -1,7 +1,7 @@
 
 
 CONTINENTS='Europe', 'Asia','Africa'
-REGIONS='ES'
+REGIONS='ES', 'IT'
 PRECISION=10m
 PRECISIONREG=10m
 

@@ -117,7 +117,7 @@ const PressMintEU = new Set([
 "GR",
 "HU",
 "IS",
-"IT",
+"IT-BZ",
 "LV",
 "NL",
 "PL",
@@ -140,6 +140,15 @@ const boxCountriesEU= new Set([
 const boxCountriesAF = new Set([
 "ZA"
 ]);
+
+const parentAreas = new Set([
+  "Europe",
+  "Asia",
+  "Africa",
+  "ES",
+  "IT"
+]);
+
 
 const height = window.innerHeight;
 const width = height;
@@ -166,7 +175,7 @@ d3.json("./map.geojson")
       type: "FeatureCollection",
       //features: data.features.filter(d => europeISO.has(d.properties["iso2"]))
       features: data.features.filter(d => {
-        return (d.properties.parent == "Europe" || d.properties.parent == "Asia" || d.properties.parent == "ES");
+        return (d.properties.parent != "Africa" && parentAreas.has(d.properties.parent));
       })
     };
 
