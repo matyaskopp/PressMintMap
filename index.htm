@@ -19,7 +19,7 @@
     }
     .country {
       fill: #9CB3C5;
-      stroke-width: 2;
+      stroke-width: 1.5;
     }
 
     .pressmint:hover {
@@ -29,7 +29,7 @@
     .pressmint {
       fill: #C7D987;/*#3399BB;*/
     }
-
+ 
     .label {
       fill:#052d4d;
       font-family: "Source Sans 3", Arial, sans-serif;
@@ -172,8 +172,27 @@ const projection = d3.geoMercator()
 const path = d3.geoPath().projection(projection);
 
 // Load Natural Earth GeoJSON (via CDN)
-d3.json("./map.geojson")
-  .then(data => {
+Promise.all([
+  d3.json("map.geojson"),
+  d3.json("ua_fixed.geojson"),
+  d3.json("ru.geojson")
+  ]).then(([countries, ua_fixed, ru_fixed]) => {
+    const ua = ua_fixed.features[0];
+    const ru = ru_fixed.features[0];
+    const replaced = countries.features.map(f => {
+        if (f.properties.iso === "UA") return ua;
+        if (f.properties.iso === "RU") return ru;
+        return f;
+      });
+    const countriesOnly = replaced.filter(f => f.properties.level === "country");
+    const regionsOnly = replaced.filter(f => f.properties.level === "region");
+    console.log("COUNTRIES:", countriesOnly);
+    console.log("REGIONS:", regionsOnly);
+    const data = {
+      type: "FeatureCollection",
+      features: [...countriesOnly, ...regionsOnly]
+    };
+    
     console.log("Loaded", data);
 
     // Filter Europe
@@ -230,13 +249,14 @@ d3.json("./map.geojson")
 
     const defs = svg.append("defs");
     svg.selectAll("path.eu")
-      .data(europe.features)
+      .data(europe.features.sort((a, b) => a.properties.iso === "RU" ? -1 : 0)) // send RU to the background (important when using non-patched version)
       .enter()
       .append("path")
       .attr("class", d =>
                          "area " + d.properties.level + (PressMintEU.has(d.properties.iso) || PressMintAF.has(d.properties.iso) ? " pressmint" : "")
             )
       .attr("code", d => d.properties.iso)
+      .attr("id", d => d.properties.iso)
       .attr("name", d => d.properties.name)
       .attr("d", path);
     
@@ -281,6 +301,7 @@ d3.json("./map.geojson")
                          "area " + d.properties.level + (PressMintAF.has(d.properties.iso) ? " pressmint" : "")
             )
       .attr("code", d => d.properties.iso)
+      .attr("id", d => d.properties.iso)
       .attr("name", d => d.properties.name)
       .attr("d", path);   
       gAfrica.append("circle")
