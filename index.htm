@@ -90,10 +90,82 @@
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
+
+
+    /* Alternative style sheet applied when toggle is ON */
+    .alt-style #ES, .alt-style #IT {
+      fill: #C7D987;
+    }
+
+    .alt-style .area.region {
+      fill-opacity: 1;
+      stroke: none;
+    }
+
+    /* Toggle Switch Styles */
+    .switch-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input { 
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      transition: .3s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #a2c037;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+
   </style>
 </head>
 <body>
   <div id="controls">
+    <label class="switch-container">
+      <span class="switch">
+        <input type="checkbox" id="styleToggle">
+        <span class="slider"></span>
+      </span>
+      hide regions
+    </label>
 <button class="exportBtn" id="exportSVG" title="Download SVG">⬇ SVG</button>
 <button class="exportBtn" id="exportPNG" title="Download PNG">⬇ PNG</button>
 </div>
@@ -170,6 +242,12 @@ const projection = d3.geoMercator()
   .translate([width / 2, height / 2]);
 
 const path = d3.geoPath().projection(projection);
+
+d3.select("#styleToggle").on("change", function() {
+  const isChecked = d3.select(this).property("checked");
+  // Toggle the class on the top-level SVG container so children inherit the changes
+  svg.classed("alt-style", isChecked);
+});
 
 // Load Natural Earth GeoJSON (via CDN)
 Promise.all([
