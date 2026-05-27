@@ -92,16 +92,24 @@
 
 
 
-    /* Alternative style sheet applied when toggle is ON */
-    .alt-style #ES, .alt-style #IT {
+    /* */
+    .hide-reg #ES, .hide-reg #IT {
       fill: #C7D987;
     }
 
-    .alt-style .area.region {
+    .hide-reg .area.region {
       fill-opacity: 1;
       stroke: none;
     }
+    .hide-code .label {
+      display: none;
+      fill:transparent
+    }
 
+    .hide-logo image {
+      display: none;
+      fill:transparent
+    }
     /* Toggle Switch Styles */
     .switch-container {
       display: flex;
@@ -109,7 +117,7 @@
       gap: 10px;
       font-size: 14px;
       font-weight: 600;
-      color: #333;
+      color: #052d4d;
     }
 
     .switch {
@@ -129,7 +137,7 @@
       position: absolute;
       cursor: pointer;
       top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #ccc;
+      background-color: #9CB3C5;
       transition: .3s;
       border-radius: 24px;
     }
@@ -161,10 +169,24 @@
   <div id="controls">
     <label class="switch-container">
       <span class="switch">
-        <input type="checkbox" id="styleToggle">
+        <input type="checkbox" id="regionToggle" checked>
         <span class="slider"></span>
       </span>
-      hide regions
+      regions
+    </label>
+    <label class="switch-container">
+      <span class="switch">
+        <input type="checkbox" id="codeToggle" checked>
+        <span class="slider"></span>
+      </span>
+      codes
+    </label>
+    <label class="switch-container">
+      <span class="switch">
+        <input type="checkbox" id="logoToggle" checked>
+        <span class="slider"></span>
+      </span>
+      logo
     </label>
 <button class="exportBtn" id="exportSVG" title="Download SVG">⬇ SVG</button>
 <button class="exportBtn" id="exportPNG" title="Download PNG">⬇ PNG</button>
@@ -243,10 +265,22 @@ const projection = d3.geoMercator()
 
 const path = d3.geoPath().projection(projection);
 
-d3.select("#styleToggle").on("change", function() {
+d3.select("#regionToggle").on("change", function() {
   const isChecked = d3.select(this).property("checked");
   // Toggle the class on the top-level SVG container so children inherit the changes
-  svg.classed("alt-style", isChecked);
+  svg.classed("hide-reg", !isChecked);
+});
+
+d3.select("#codeToggle").on("change", function() {
+  const isChecked = d3.select(this).property("checked");
+  // Toggle the class on the top-level SVG container so children inherit the changes
+  svg.classed("hide-code", !isChecked);
+});
+
+d3.select("#logoToggle").on("change", function() {
+  const isChecked = d3.select(this).property("checked");
+  // Toggle the class on the top-level SVG container so children inherit the changes
+  svg.classed("hide-logo", !isChecked);
 });
 
 // Load Natural Earth GeoJSON (via CDN)
@@ -522,6 +556,16 @@ function exportSVG() {
 
   document.body.appendChild(clone);
   inlineStyles(clone);
+
+  // REMOVE ALL HIDDEN ELEMENTS (Works for CSS classes, stylesheets, and inline styles)
+  const allElements = clone.getElementsByTagName("*");
+  for (let i = allElements.length - 1; i >= 0; i--) {
+    const el = allElements[i];
+    if (window.getComputedStyle(el).display === "none") {
+      el.remove();
+    }
+  }
+
   document.body.removeChild(clone);
   //clone.setAttribute("width", width);
   //clone.setAttribute("height", height);
