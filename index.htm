@@ -249,6 +249,11 @@ const parentAreas = new Set([
   "IT"
 ]);
 
+function rank(feature) {
+    if (feature.properties.iso === "RU") return 0;
+    if (PressMintEU.has(feature.properties.iso) || PressMintAF.has(feature.properties.iso)) return 2;
+    return 1;
+}
 
 const height = window.innerHeight;
 const width = height;
@@ -361,7 +366,7 @@ Promise.all([
 
     const defs = svg.append("defs");
     svg.selectAll("path.eu")
-      .data(europe.features.sort((a, b) => a.properties.iso === "RU" ? -1 : 0)) // send RU to the background (important when using non-patched version)
+      .data(europe.features.sort((a, b) => rank(a) - rank(b))) // send RU to the background (important when using non-patched version)
       .enter()
       .append("path")
       .attr("class", d =>
@@ -445,6 +450,8 @@ Promise.all([
   .attr("text-anchor", "middle")
   .attr("alignment-baseline", "middle")
   .text(d => d.properties.iso);
+
+
 
   function projectPoint(d) {
     const [x, y] = getMainlandCentroid(d);
