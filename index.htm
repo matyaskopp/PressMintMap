@@ -46,6 +46,12 @@ btnPNG.disabled = true;
 const keep = ["fill", "stroke", "stroke-width", "opacity", "font-size", "font-weight", "font-family", "text-anchor"];
 let imageReady = false;
 
+// web fonts are not available to an SVG rendered as an image -> embed them in the export
+let exportFontCSS = "";
+const fontReady = loadFontCSS(exportFontURL)
+  .then(css => { exportFontCSS = css; })
+  .catch(err => console.warn("export font not embedded:", err));
+
 
 
 function rank(feature) {
@@ -299,13 +305,14 @@ Promise.all([
     .attr("width", 2*r)
     .attr("height", 2*r);
     imageReady = true;
-    requestAnimationFrame(() => {
+    fontReady.then(() => requestAnimationFrame(() => {
       // requestAnimationFrame(downloadSVG);
         btnSVG.addEventListener("click", downloadSVG);
         btnSVG.disabled = false;
         btnPNG.addEventListener("click", downloadPNG);
         btnPNG.disabled = false;
-    });
+        window.mapReady = true; // used by render-map.mjs (make map.png)
+    }));
   });
 
 
@@ -334,6 +341,22 @@ console.log(svg);
   });
 }
 
+
+function blobToDataURL(blob) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.readAsDataURL(blob);
+  });
+}
+
+// fetch font CSS (e.g. Google Fonts) and replace font file urls with data urls
+async function loadFontCSS(url) {
+  const css = await fetch(url).then(res => res.text());
+  const urls = [...new Set([...css.matchAll(/url\((['"]?)(.*?)\1\)/g)].map(m => m[2]))];
+  const data = await Promise.all(urls.map(u => fetch(u).then(res => res.blob()).then(blobToDataURL)));
+  return urls.reduce((acc, u, i) => acc.split(u).join(data[i]), css);
+}
 
 function loadImageAsBase64(url, callback) {
   fetch(url)
@@ -378,6 +401,11 @@ function exportSVG() {
   clone.removeAttribute("style"); // optional
   clone.style.background = "white";
   clone.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  if (exportFontCSS) {
+    const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+    style.textContent = exportFontCSS;
+    clone.insertBefore(style, clone.firstChild);
+  }
 
   console.log(clone);
 
@@ -406,40 +434,46 @@ function downloadSVG() {
 }
 
 
-function downloadPNG() {
+// render map as PNG, returns Promise<Blob>
+function renderPNG(scale = 2) { // 2 = retina quality
   const svgString = exportSVG();
 
-  const img = new Image();
-  const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(svgBlob);
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
 
-  img.onload = function () {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
+    img.onerror = reject;
+    img.onload = function () {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
 
-    const scale = 2; // 2 = retina quality
+      canvas.width = width * scale;
+      canvas.height = height * scale;
 
-    canvas.width = width * scale;
-    canvas.height = height * scale;
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0, width, height);
 
-    ctx.scale(scale, scale);
-    ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
 
-    URL.revokeObjectURL(url);
+      canvas.toBlob(resolve, "image/png");
+    };
 
-    canvas.toBlob(blob => {
-      const pngUrl = URL.createObjectURL(blob);
+    img.src = url;
+  });
+}
 
-      const a = document.createElement("a");
-      a.href = pngUrl;
-      a.download = "map.png";
-      a.click();
+function downloadPNG() {
+  renderPNG().then(blob => {
+    const pngUrl = URL.createObjectURL(blob);
 
-      URL.revokeObjectURL(pngUrl);
-    });
-  };
+    const a = document.createElement("a");
+    a.href = pngUrl;
+    a.download = "map.png";
+    a.click();
 
-  img.src = url;
+    URL.revokeObjectURL(pngUrl);
+  });
 }
 
 </script>

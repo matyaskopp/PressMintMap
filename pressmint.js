@@ -44,3 +44,6 @@ const parentAreas = new Set([
   "ES",
   "IT"
 ]);
+
+// font embedded into exported SVG/PNG (labels use weight 600)
+const exportFontURL = "https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@600&display=swap";

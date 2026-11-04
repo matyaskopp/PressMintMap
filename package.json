@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "mapshaper": "^0.7.17",
+    "puppeteer-core": "^24.43.1"
+  }
+}

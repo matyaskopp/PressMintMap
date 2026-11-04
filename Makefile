@@ -125,6 +125,23 @@ normalize: $(FILE).geojson
   
 
 
+# Render map.png (README preview) from index.htm in headless Firefox
+#   make map.png [MAP_SIZE=1081] [MAP_SCALE=2] [FIREFOX=/usr/bin/firefox] [MAP_PORT=8765]
+MAP_SIZE ?= 1081
+MAP_SCALE ?= 2
+MAP_PORT ?= 8765
+FIREFOX ?= /usr/bin/firefox
+MAP_DEPS = index.htm styles.css pressmint.css pressmint.js logo.png map.geojson ua_fixed.geojson ru_fixed.geojson
+
+map.png: $(MAP_DEPS) render-map.mjs
+	test -d node_modules/puppeteer-core || npm install
+	python3 -m http.server $(MAP_PORT) --bind 127.0.0.1 >/dev/null 2>&1 & pid=$$!; \
+	  sleep 1; \
+	  node render-map.mjs http://127.0.0.1:$(MAP_PORT)/index.htm $@.tmp $(MAP_SIZE) $(MAP_SCALE) $(FIREFOX); \
+	  rc=$$?; kill $$pid; \
+	  [ $$rc -eq 0 ] && mv $@.tmp $@ || { rm -f $@.tmp; exit 1; }
+
+
 # Visual check of the Crimea/Sevastopol patch: before vs. after + highlighted changes
 #   make viz-patch [VIZ_BASE=<git rev with old data>] [VIZ_BBOX=xmin,ymin,xmax,ymax]
 VIZ_BASE ?= 1b3201c
