@@ -12,25 +12,27 @@
   <div id="controls">
     <label class="switch-container">
       <span class="switch">
-        <input type="checkbox" id="regionToggle" checked>
+        <input type="checkbox" id="regionToggle" data-param="regions" checked>
         <span class="slider"></span>
       </span>
       regions
     </label>
     <label class="switch-container">
       <span class="switch">
-        <input type="checkbox" id="codeToggle" checked>
+        <input type="checkbox" id="codeToggle" data-param="codes" checked>
         <span class="slider"></span>
       </span>
       codes
     </label>
     <label class="switch-container">
       <span class="switch">
-        <input type="checkbox" id="logoToggle" checked>
+        <input type="checkbox" id="logoToggle" data-param="logo" checked>
         <span class="slider"></span>
       </span>
       logo
     </label>
+<button class="exportBtn" id="reset" title="Reset to defaults">↺ Reset</button>
+<button class="exportBtn" id="share" title="Copy link to this map setup">🔗 Share</button>
 <button class="exportBtn" id="exportSVG" title="Download SVG">⬇ SVG</button>
 <button class="exportBtn" id="exportPNG" title="Download PNG">⬇ PNG</button>
 </div>
@@ -92,6 +94,56 @@ d3.select("#logoToggle").on("change", function() {
   // Toggle the class on the top-level SVG container so children inherit the changes
   svg.classed("hide-logo", !isChecked);
 });
+
+// reset to defaults: no highlighted/candidate countries, all switches on
+d3.select("#reset").on("click", function() {
+  svg.selectAll(".selected").classed("selected", false);
+  svg.selectAll(".candidate").classed("candidate", false);
+  svg.selectAll("text[data-candidate]").remove();
+  d3.selectAll("#controls input[type=checkbox]")
+    .property("checked", true)
+    .dispatch("change");
+  history.replaceState(null, "", location.pathname);
+});
+
+// share: current setup stored in url, e.g. ?selected=PL,UA&candidates=DE&hide=regions
+function stateURL() {
+  const ids = sel => [...document.querySelectorAll(sel)].map(e => e.id).sort().join(",");
+  const params = new URLSearchParams();
+  const selected = ids("#map path.selected");
+  const candidates = ids("#map path.candidate");
+  const hide = [...document.querySelectorAll("#controls input[data-param]")]
+    .filter(i => !i.checked).map(i => i.dataset.param).join(",");
+  if (selected) params.set("selected", selected);
+  if (candidates) params.set("candidates", candidates);
+  if (hide) params.set("hide", hide);
+  const query = params.toString().replace(/%2C/g, ",");
+  return location.origin + location.pathname + (query ? "?" + query : "");
+}
+
+d3.select("#share").on("click", function() {
+  const url = stateURL();
+  history.replaceState(null, "", url);
+  const btn = this;
+  const done = text => {
+    btn.textContent = text;
+    setTimeout(() => { btn.textContent = "🔗 Share"; }, 1500);
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(url).then(() => done("✓ Copied"), () => prompt("Map link:", url));
+  } else {
+    prompt("Map link:", url);
+  }
+});
+
+// switches from url (?hide=regions,codes,logo)
+function applyURLSwitches() {
+  const hide = new Set((new URLSearchParams(location.search).get("hide") || "").split(","));
+  d3.selectAll("#controls input[data-param]")
+    .property("checked", function() { return !hide.has(this.dataset.param); })
+    .dispatch("change");
+}
+applyURLSwitches();
 
 // Load Natural Earth GeoJSON (via CDN)
 Promise.all([
@@ -170,6 +222,22 @@ Promise.all([
     console.log("AFRICA:", africa);
 
     const defs = svg.append("defs");
+
+    // stripes for candidate countries (colors in styles.css/pressmint.css)
+    const stripes = defs.append("pattern")
+      .attr("id", "candidate-stripes")
+      .attr("patternUnits", "userSpaceOnUse")
+      .attr("width", 8)
+      .attr("height", 8)
+      .attr("patternTransform", "rotate(45)");
+    stripes.append("rect")
+      .attr("class", "stripe-bg")
+      .attr("width", 8)
+      .attr("height", 8);
+    stripes.append("rect")
+      .attr("class", "stripe")
+      .attr("width", 4)
+      .attr("height", 8);
     svg.selectAll("path.eu")
       .data(europe.features.sort((a, b) => rank(a) - rank(b))) // send RU to the background (important when using non-patched version)
       .enter()
@@ -240,11 +308,30 @@ Promise.all([
         `);
 
 
-  // click on PressMint country/region toggles its highlighting
-  svg.selectAll("path.pressmint")
-    .on("click", function() {
-      d3.select(this).classed("selected", !d3.select(this).classed("selected"));
-    });
+  const africaInset = new Set(africa.features); // features drawn in scaled Africa inset
+
+  // click toggles highlighting: PressMint country/region -> selected, other country -> candidate (striped + code)
+  function toggleArea(path, on) {
+    const el = d3.select(path);
+    const d = el.datum();
+    const cls = el.classed("pressmint") ? "selected" : "candidate";
+    if (on === undefined) on = !el.classed(cls);
+    if (el.classed(cls) === on) return;
+    el.classed(cls, on);
+    if (cls === "candidate") {
+      if (on) {
+        svg.append("text")
+          .datum(d)
+          .attr("data-candidate", d.properties.iso)
+          .call(label);
+      } else {
+        svg.selectAll(`text[data-candidate="${d.properties.iso}"]`).remove();
+      }
+    }
+  }
+
+  svg.selectAll("path.area")
+    .on("click", function() { toggleArea(this); });
 
   // add labels
   svg.selectAll("text")
@@ -255,18 +342,31 @@ Promise.all([
     PressMintEU.has(d.properties.iso) ||
     PressMintAF.has(d.properties.iso)
   )
-  .attr("x", d => projectPoint(d)[0])
-  .attr("y", d => projectPoint(d)[1])
-  .attr("class", d => "label " + d.properties.level)
-  .attr("text-anchor", "middle")
-  .attr("alignment-baseline", "middle")
-  .text(d => d.properties.iso);
+  .call(label);
 
+  // highlighted countries from url (?selected=PL,UA&candidates=DE)
+  const urlParams = new URLSearchParams(location.search);
+  ["selected", "candidates"].forEach(param => {
+    (urlParams.get(param) || "").split(",").filter(Boolean).forEach(iso => {
+      const path = svg.select(`path.area[id="${CSS.escape(iso)}"]`).node();
+      if (path) toggleArea(path, true);
+      else console.warn(`unknown area in url (${param}):`, iso);
+    });
+  });
 
+  function label(selection) {
+    selection
+      .attr("x", d => projectPoint(d)[0])
+      .attr("y", d => projectPoint(d)[1])
+      .attr("class", d => "label " + d.properties.level)
+      .attr("text-anchor", "middle")
+      .attr("alignment-baseline", "middle")
+      .text(d => d.properties.iso);
+  }
 
   function projectPoint(d) {
     const [x, y] = getMainlandCentroid(d);
-    if (d.properties.iso === "ZA") {
+    if (africaInset.has(d)) {
       return [
         targetX + (x - cx) * scale,
         targetY + (y - cy) * scale
@@ -339,7 +439,8 @@ console.log(svg);
     const computed = window.getComputedStyle(el);
     let style = "";
     keep.forEach(prop => {
-      const value = computed.getPropertyValue(prop);
+      // computed url() may be absolute (page url + #id), standalone SVG needs local reference
+      const value = computed.getPropertyValue(prop).replace(/url\(["']?[^"')]*#([^"')]+)["']?\)/g, 'url(#$1)');
       if (value) style += `${prop}:${value};`;
     });
 

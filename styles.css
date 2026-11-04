@@ -26,8 +26,19 @@ svg { width: 100vh; height: 100vh; }
   fill: #555555;
 }
 
-.pressmint {
+.area.country, .pressmint {
   cursor: pointer;
+}
+
+/* candidate countries (click on non-PressMint country): striped */
+.area.candidate {
+  fill: url(#candidate-stripes);
+}
+.stripe-bg {
+  fill: #cccccc;
+}
+.stripe {
+  fill: #888888;
 }
 
 .pressmint.selected {
