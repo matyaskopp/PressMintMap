@@ -1,70 +1,98 @@
+# MintMap library maintenance: prebuilt map data + PressMint example
+#
+#   make all        - rebuild data/europe.topojson and the PressMint map (pressmint/map.png)
+#   make data       - rebuild data/europe.topojson from Natural Earth
+#   make viz-patch  - check of the Crimea/Sevastopol patch (before/after images)
+#
+# projects using the library: see lib/map.mk
 
+# countries in data (Natural Earth CONTINENT)
+CONTINENTS = 'Europe', 'Asia', 'Africa'
+# countries of these continents are included with regions (admin-1), e.g. "Europe", "Asia"
+REGION_CONTINENTS = "Europe"
+PRECISION = 10m
+PRECISIONREG = 10m
+# simplification (minimal distance between points in meters) and topojson quantization
+SIMPLIFY = 1000
+QUANTIZATION = 100000
 
-CONTINENTS='Europe', 'Asia','Africa'
-REGIONS='ES', 'IT', 'UA', 'RU'
-PRECISION=10m
-PRECISIONREG=10m
+BUILD = build
+NE0 = ne_$(PRECISION)_admin_0_countries
+NE1 = ne_$(PRECISIONREG)_admin_1_states_provinces
+DATA = data/europe.topojson
 
-.PHONY: all setup start-server download sources fix-crimea data normalize
+.PHONY: all data download clean start-server
 
-# update data and README preview (map.png)
+# never keep half-written targets
+.DELETE_ON_ERROR:
+
 all: data
-	$(MAKE) map.png
+	$(MAKE) -C pressmint map.png
 
-setup:
-	# npm install -g mapshaper
-
+data: $(DATA)
 
 start-server:
 	python3 -m http.server 8000
 
-download:
-	if [ ! -f ne_$(PRECISION)_admin_0_countries.zip ]; then curl -L -o ne_$(PRECISION)_admin_0_countries.zip https://naciscdn.org/naturalearth/$(PRECISION)/cultural/ne_$(PRECISION)_admin_0_countries.zip; fi
-	if [ ! -f ne_$(PRECISIONREG)_admin_1_states_provinces.zip ]; then curl -L -o ne_$(PRECISIONREG)_admin_1_states_provinces.zip https://naciscdn.org/naturalearth/$(PRECISIONREG)/cultural/ne_$(PRECISIONREG)_admin_1_states_provinces.zip; fi
+download: $(NE0).zip $(NE1).zip
 
-sources: download
-	rm -f countries.geojson states.geojson
+$(NE0).zip $(NE1).zip:
+	curl -L -o $@ https://naciscdn.org/naturalearth/$(PRECISION)/cultural/$@
 
+clean:
+	rm -rf $(BUILD)
+
+$(BUILD)/countries.geojson: $(NE0).zip
+	mkdir -p $(BUILD)
+	rm -f $@
 	ogr2ogr -f GeoJSON -makevalid \
-		-nln merged \
+	  -nln countries \
 	  -sql "SELECT \
 	    'country' as level, \
 	    NAME as name, \
 	    ISO_A2_EH as iso, \
 	    CONTINENT as parent \
-	  FROM ne_$(PRECISION)_admin_0_countries \
-	  WHERE CONTINENT IN (${CONTINENTS}) \
+	  FROM $(NE0) \
+	  WHERE CONTINENT IN ($(CONTINENTS)) \
 	    AND TYPE != 'Dependency'" \
-	  countries.geojson \
-	  /vsizip/ne_$(PRECISION)_admin_0_countries.zip
+	  $@ /vsizip/$(NE0).zip
 
+# regions of all countries in REGION_CONTINENTS, grouped by code (e.g. provinces -> ES-GA)
+# Crimea and Sevastopol are labelled RU in Natural Earth -> assigned to UA
+$(BUILD)/states.geojson: $(BUILD)/countries.geojson $(NE1).zip
+	rm -f $@ $(BUILD)/states.all.geojson
+	iso=$$(jq -r '[.features[].properties | select(.parent | IN($(REGION_CONTINENTS))) | "'"'"'" + .iso + "'"'"'"] | join(",")' $<); \
 	ogr2ogr -f GeoJSON -makevalid \
 	  -dialect SQLite \
-		-nln states \
+	  -nln states \
 	  -sql "SELECT \
-			'region' as level, \
+	    'region' as level, \
 	    name_en as name, \
 	    REPLACE(code_hasc, '.', '-') as iso, \
 	    CASE WHEN code_hasc LIKE 'UA.%' THEN 'UA' ELSE ISO_A2 END as parent, \
 	    geometry \
-	  FROM ne_$(PRECISIONREG)_admin_1_states_provinces \
-	  WHERE ISO_A2 IN (${REGIONS})" \
-	  states.geojson \
-	  /vsizip/ne_$(PRECISIONREG)_admin_1_states_provinces.zip
+	  FROM $(NE1) \
+	  WHERE ISO_A2 IN ($$iso) AND code_hasc IS NOT NULL" \
+	  $(BUILD)/states.all.geojson /vsizip/$(NE1).zip
+	ogr2ogr -f GeoJSON -makevalid \
+	  -dialect SQLite \
+	  -nln states \
+	  -sql "SELECT \
+	    level as level, \
+	    MIN(name) as name, \
+	    iso, \
+	    parent, \
+	    ST_Union(geometry) as geometry \
+	  FROM states \
+	  GROUP BY iso, parent" \
+	  $@ $(BUILD)/states.all.geojson
 
-
-
-
-fix-crimea: sources
-	rm -rf tmp
-	mkdir -p tmp
-	rm -f ua_fixed.geojson ru_fixed.geojson
-
+# Ukraine = Ukraine + Crimea (UA-KR) + Sevastopol (UA-SC), Russia = Russia - Crimea - Sevastopol
+$(BUILD)/ua_fixed.geojson $(BUILD)/ru_fixed.geojson &: $(BUILD)/countries.geojson $(BUILD)/states.geojson
+	rm -f $(BUILD)/merged.geojson $(BUILD)/ua_fixed.geojson $(BUILD)/ru_fixed.geojson
 	# countries + regions in one layer, so they can be combined in one SQL query
-	cp countries.geojson tmp/merged.geojson
-	ogr2ogr -f GeoJSON -append -nln merged tmp/merged.geojson states.geojson
-
-	# Ukraine = Ukraine + Crimea (UA-KR) + Sevastopol (UA-SC)
+	jq -s '{type: "FeatureCollection", name: "merged", features: map(.features[])}' \
+	  $(BUILD)/countries.geojson $(BUILD)/states.geojson > $(BUILD)/merged.geojson
 	ogr2ogr -f GeoJSON -makevalid \
 	  -dialect SQLite \
 	  -nln ua \
@@ -77,10 +105,7 @@ fix-crimea: sources
 	  FROM merged \
 	  WHERE (level = 'country' AND iso = 'UA') \
 	    OR iso IN ('UA-KR', 'UA-SC')" \
-	  ua_fixed.geojson \
-	  tmp/merged.geojson
-
-	# Russia = Russia - Crimea (UA-KR) - Sevastopol (UA-SC)
+	  $(BUILD)/ua_fixed.geojson $(BUILD)/merged.geojson
 	ogr2ogr -f GeoJSON -makevalid \
 	  -dialect SQLite \
 	  -nln ru \
@@ -95,57 +120,19 @@ fix-crimea: sources
 	    ) as geometry \
 	  FROM merged \
 	  WHERE level = 'country' AND iso = 'RU'" \
-	  ru_fixed.geojson \
-	  tmp/merged.geojson
+	  $(BUILD)/ru_fixed.geojson $(BUILD)/merged.geojson
 
-data: fix-crimea
-	rm -f map.geojson
-
-	# cp countries_fixed.geojson map.geojson
-	cp countries.geojson map.geojson
-	#ogr2ogr -f GeoJSON map.geojson others.geojson -nln merged #cp others.geojson map.geojson
-	
-	ogr2ogr -f GeoJSON \
-	  -makevalid \
-	  -append \
-	  -nln merged \
-	  -dialect SQLite \
-	  -sql "SELECT \
-	    level as level, \
-	    MIN(name) as name, \
-	    iso, \
-	    parent, \
-	    ST_Union(geometry) as geometry \
-	  FROM states \
-	  GROUP BY iso, parent" \
-	  map.geojson \
-	  states.geojson
-
-
-normalize: $(FILE).geojson
-	jq -S -c "\
-	  .features |= map( \
-	    .properties |= (to_entries | sort_by(.key) | from_entries) \
-	  ) \
-	" $(FILE).geojson | sed 's/\("type":"Feature"}\)/\1\n/g'| sed 's/\({"geometry"\)/\n\1/' > $(FILE).norm.geojson
-  
-
-
-# Render map.png (README preview) from index.htm in headless Firefox
-#   make map.png [MAP_SIZE=1081] [MAP_SCALE=2] [FIREFOX=/usr/bin/firefox] [MAP_PORT=8765]
-MAP_SIZE ?= 1081
-MAP_SCALE ?= 2
-MAP_PORT ?= 8765
-FIREFOX ?= /usr/bin/firefox
-MAP_DEPS = index.htm lib/map.js styles.css pressmint.css pressmint.js logo.png map.geojson ua_fixed.geojson ru_fixed.geojson
-
-map.png: $(MAP_DEPS) render-map.mjs
-	test -d node_modules/puppeteer-core || npm install
-	python3 -m http.server $(MAP_PORT) --bind 127.0.0.1 >/dev/null 2>&1 & pid=$$!; \
-	  sleep 1; \
-	  node render-map.mjs http://127.0.0.1:$(MAP_PORT)/index.htm $@.tmp $(MAP_SIZE) $(MAP_SCALE) $(FIREFOX); \
-	  rc=$$?; kill $$pid; \
-	  [ $$rc -eq 0 ] && mv $@.tmp $@ || { rm -f $@.tmp; exit 1; }
+# all countries (UA/RU patched) + regions, simplified, as topojson
+$(DATA): $(BUILD)/countries.geojson $(BUILD)/states.geojson $(BUILD)/ua_fixed.geojson $(BUILD)/ru_fixed.geojson
+	mkdir -p $(dir $@)
+	rm -f $(BUILD)/map.geojson
+	jq -s '{type: "FeatureCollection", name: "map", features: ((.[0].features | map(select(.properties.iso | IN("UA", "RU") | not))) + (.[1:] | map(.features[])))}' \
+	  $(BUILD)/countries.geojson $(BUILD)/ua_fixed.geojson $(BUILD)/ru_fixed.geojson $(BUILD)/states.geojson \
+	  > $(BUILD)/map.geojson
+	npx --no-install mapshaper -i $(BUILD)/map.geojson name=map \
+	  -simplify interval=$(SIMPLIFY) keep-shapes \
+	  -o format=topojson quantization=$(QUANTIZATION) $@
+	@ls -la $@
 
 
 # Visual check of the Crimea/Sevastopol patch: before vs. after + highlighted changes
@@ -159,13 +146,13 @@ VIZ_STYLE_FRAME = -style target=frame fill=none stroke='\#052d4d' stroke-width=1
 VIZ_STYLE_CITY = -style target=cities r=3 fill='\#052d4d' label-text='this.properties.name' font-size=13 dx=5 dy=-5
 
 .PHONY: viz-patch
-viz-patch:
+viz-patch: $(BUILD)/ua_fixed.geojson
 	rm -rf $(VIZ_DIR)
 	mkdir -p $(VIZ_DIR)/before $(VIZ_DIR)/after
 	git show $(VIZ_BASE):ua_fixed.geojson > $(VIZ_DIR)/before/ua.full.geojson
 	git show $(VIZ_BASE):ru.geojson > $(VIZ_DIR)/before/ru.full.geojson
-	cp ua_fixed.geojson $(VIZ_DIR)/after/ua.full.geojson
-	cp ru_fixed.geojson $(VIZ_DIR)/after/ru.full.geojson
+	cp $(BUILD)/ua_fixed.geojson $(VIZ_DIR)/after/ua.full.geojson
+	cp $(BUILD)/ru_fixed.geojson $(VIZ_DIR)/after/ru.full.geojson
 	jq -n '[["Sevastopol",33.52,44.60],["Simferopol",34.10,44.95],["Kerch",36.47,45.36],["Kherson",32.62,46.64],["Krasnodar",38.98,45.04]] | {type:"FeatureCollection",features:map({type:"Feature",properties:{name:.[0]},geometry:{type:"Point",coordinates:.[1:]}})}' > $(VIZ_DIR)/cities.geojson
 
 	# clip every layer separately (mapshaper -erase fails silently on the antimeridian-crossing RU polygon)

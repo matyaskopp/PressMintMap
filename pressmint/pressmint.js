@@ -1,9 +1,7 @@
-// PressMint map settings (see lib/map.js for all options)
+// PressMint map settings (see ../lib/map.js for all options)
 
 const config = {
-  data: "map.geojson",
-  // Crimea and Sevastopol (UA) - see make fix-crimea
-  patches: ["ua_fixed.geojson", "ru_fixed.geojson"],
+  data: "../data/europe.topojson",
 
   // PressMint countries and regions
   highlight: [

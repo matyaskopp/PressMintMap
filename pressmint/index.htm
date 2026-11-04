@@ -2,10 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.2/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
 
-<link href="styles.css" rel="stylesheet">
+<link href="../lib/styles.css" rel="stylesheet">
 <link href="pressmint.css" rel="stylesheet">
 </head>
 <body>
@@ -38,7 +39,7 @@
 </div>
 <svg id="map"></svg>
 
-<script src="lib/map.js"></script>
+<script src="../lib/map.js"></script>
 <script src="pressmint.js"></script>
 <script>
 MintMap.render("#map", config);
