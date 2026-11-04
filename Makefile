@@ -5,6 +5,12 @@ REGIONS='ES', 'IT', 'UA', 'RU'
 PRECISION=10m
 PRECISIONREG=10m
 
+.PHONY: all setup start-server download sources fix-crimea data normalize
+
+# update data and README preview (map.png)
+all: data
+	$(MAKE) map.png
+
 setup:
 	# npm install -g mapshaper
 
