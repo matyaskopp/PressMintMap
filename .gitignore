@@ -1,0 +1,10 @@
+# downloaded Natural Earth data
+ne_*.zip
+# intermediate data (make data)
+build/
+# headless browser profile (make map.png), scratch files
+tmp/
+*.tmp
+# make viz-patch output
+viz-patch/
+node_modules/
