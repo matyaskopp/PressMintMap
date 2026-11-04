@@ -1,0 +1,154 @@
+/* Layout, controls and neutral default colors.
+   Project specific colors and countries are in pressmint.css (loaded after this file). */
+
+body { margin: 0; background: #fff; }
+svg { width: 100vh; height: 100vh; }
+
+/* map areas */
+.area {
+  stroke: #fff;
+}
+.region {
+  fill:none;
+  stroke-opacity: 0.5;
+  stroke-width: 0.5;
+}
+.country {
+  fill: #cccccc;
+  stroke-width: 1.5;
+}
+
+.pressmint {
+  fill: #888888;
+}
+
+.pressmint:hover {
+  fill: #555555;
+}
+
+.label {
+  fill: #000;
+  font-family: Arial, sans-serif;
+  font-size: 2.5vh;
+  font-weight: 600;
+  pointer-events: none;
+}
+.label.region {
+  font-size: 1.8vh;
+}
+
+/* toggles */
+.hide-reg .area.region {
+  fill-opacity: 1;
+  stroke: none;
+}
+.hide-code .label {
+  display: none;
+  fill:transparent
+}
+
+.hide-logo image {
+  display: none;
+  fill:transparent
+}
+
+/* controls panel */
+#controls {
+  position: absolute;
+  bottom: 5px;
+  left: 105vh;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: rgba(255,255,255,0.8);
+  padding: 8px;
+  border-radius: 10px;
+  backdrop-filter: blur(6px);
+}
+
+/* export buttons */
+.exportBtn {
+  width: 55px;
+  height: 55px;
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 18px;
+
+  background: #88888866;
+  color: white;
+
+  border: none;
+  border-radius: 50%;
+
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.exportBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+  background: #888888;
+}
+
+.exportBtn:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* Toggle Switch Styles */
+.switch-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.switch input { 
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #cccccc;
+  transition: .3s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #888888;
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}

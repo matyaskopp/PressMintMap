@@ -1,0 +1,47 @@
+/* PressMint specific styling: colors and countries.
+   Loaded after styles.css, overrides its defaults. */
+
+/* map areas */
+.country {
+  fill: #9CB3C5;
+}
+
+.pressmint {
+  fill: #C7D987;/*#3399BB;*/
+}
+
+.pressmint:hover {
+  fill: #3399BB;
+}
+
+.label {
+  fill:#052d4d;
+  font-family: "Source Sans 3", Arial, sans-serif;
+}
+
+/* regions hidden: whole country highlighted */
+.hide-reg #ES, .hide-reg #IT {
+  fill: #C7D987;
+}
+
+/* export buttons */
+.exportBtn {
+  background: linear-gradient(135deg, #a2c03759, #8ea83063);
+}
+
+.exportBtn:hover {
+  background: linear-gradient(135deg, #a2c037, #8ea830);
+}
+
+/* toggle switches */
+.switch-container {
+  color: #052d4d;
+}
+
+.slider {
+  background-color: #9CB3C5;
+}
+
+input:checked + .slider {
+  background-color: #a2c037;
+}
