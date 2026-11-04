@@ -26,6 +26,14 @@ svg { width: 100vh; height: 100vh; }
   fill: #555555;
 }
 
+.pressmint {
+  cursor: pointer;
+}
+
+.pressmint.selected {
+  fill: #333333;
+}
+
 .label {
   fill: #000;
   font-family: Arial, sans-serif;

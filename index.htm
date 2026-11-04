@@ -240,6 +240,12 @@ Promise.all([
         `);
 
 
+  // click on PressMint country/region toggles its highlighting
+  svg.selectAll("path.pressmint")
+    .on("click", function() {
+      d3.select(this).classed("selected", !d3.select(this).classed("selected"));
+    });
+
   // add labels
   svg.selectAll("text")
   .data(europe.features.concat(africa.features))
