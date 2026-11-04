@@ -1,4 +1,4 @@
-// Render map.png from index.htm in headless Firefox (same output as the "PNG" button)
+// Render map PNG from a page using lib/map.js in headless Firefox (same output as the "PNG" button)
 //   node render-map.mjs <url> <output.png> [size] [scale] [firefox]
 import puppeteer from "puppeteer-core";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -20,17 +20,22 @@ const browser = await puppeteer.launch({
   headless: true,
   userDataDir: profile,
   defaultViewport: { width: Number(size), height: Number(size) },
-  extraPrefsFirefox: { "browser.shell.checkDefaultBrowser": false },
+  extraPrefsFirefox: {
+    "browser.shell.checkDefaultBrowser": false,
+    // the profile is reused: never render stale (cached) page/data
+    "browser.cache.disk.enable": false,
+    "browser.cache.memory.enable": false,
+  },
 });
 
 try {
   const page = await browser.newPage();
   page.on("pageerror", err => console.error("page error:", err.message));
   await page.goto(url);
-  await page.waitForFunction(() => window.mapReady === true, { polling: 500, timeout: 120000 });
+  await page.waitForFunction(() => window.MintMap?.current?.isReady(), { polling: 500, timeout: 120000 });
   await fontsReady(page);
   const b64 = await page.evaluate(async s => {
-    const blob = await renderPNG(s);
+    const blob = await window.MintMap.current.renderPNG(s);
     const buf = new Uint8Array(await blob.arrayBuffer());
     let bin = "";
     for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));

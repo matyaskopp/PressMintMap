@@ -6,19 +6,19 @@
   fill: #9CB3C5;
 }
 
-.pressmint {
+.highlight {
   fill: #C7D987;/*#3399BB;*/
 }
 
-.pressmint:hover {
+.highlight:hover {
   fill: #3399BB;
 }
 
-.pressmint.selected {
+.highlight.selected {
   fill: #3399BB;
 }
 
-.pressmint.selected:hover {
+.highlight.selected:hover {
   fill: #2a7f9c;
 }
 
@@ -35,9 +35,13 @@
   font-family: "Source Sans 3", Arial, sans-serif;
 }
 
-/* regions hidden: whole country highlighted */
-.hide-reg #ES, .hide-reg #IT {
+/* regions hidden: country with highlighted regions shown as highlighted */
+.hide-reg .area.has-highlighted-regions {
   fill: #C7D987;
+}
+
+.inset-frame {
+  stroke: #9CB3C5;
 }
 
 /* export buttons */

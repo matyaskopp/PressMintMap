@@ -18,15 +18,15 @@ svg { width: 100vh; height: 100vh; }
   stroke-width: 1.5;
 }
 
-.pressmint {
+.highlight {
   fill: #888888;
 }
 
-.pressmint:hover {
+.highlight:hover {
   fill: #555555;
 }
 
-.area.country, .pressmint {
+.area.country, .highlight {
   cursor: pointer;
 }
 
@@ -41,7 +41,7 @@ svg { width: 100vh; height: 100vh; }
   fill: #888888;
 }
 
-.pressmint.selected {
+.highlight.selected {
   fill: #333333;
 }
 
@@ -56,7 +56,19 @@ svg { width: 100vh; height: 100vh; }
   font-size: 1.8vh;
 }
 
+/* frame of circle insets (e.g. Africa) */
+.inset-frame {
+  fill: none;
+  stroke: #cccccc;
+  stroke-width: 10;
+}
+
 /* toggles */
+/* regions hidden: country with highlighted regions shown as highlighted */
+.hide-reg .area.has-highlighted-regions {
+  fill: #888888;
+}
+
 .hide-reg .area.region {
   fill-opacity: 1;
   stroke: none;

@@ -137,7 +137,7 @@ MAP_SIZE ?= 1081
 MAP_SCALE ?= 2
 MAP_PORT ?= 8765
 FIREFOX ?= /usr/bin/firefox
-MAP_DEPS = index.htm styles.css pressmint.css pressmint.js logo.png map.geojson ua_fixed.geojson ru_fixed.geojson
+MAP_DEPS = index.htm lib/map.js styles.css pressmint.css pressmint.js logo.png map.geojson ua_fixed.geojson ru_fixed.geojson
 
 map.png: $(MAP_DEPS) render-map.mjs
 	test -d node_modules/puppeteer-core || npm install
