@@ -292,7 +292,7 @@ d3.select("#logoToggle").on("change", function() {
 Promise.all([
   d3.json("map.geojson"),
   d3.json("ua_fixed.geojson"),
-  d3.json("ru.geojson")
+  d3.json("ru_fixed.geojson")
   ]).then(([countries, ua_fixed, ru_fixed]) => {
     const ua = ua_fixed.features[0];
     const ru = ru_fixed.features[0];
